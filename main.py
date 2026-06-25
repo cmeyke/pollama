@@ -1,6 +1,10 @@
 import os
+import re
 import urllib.request
 from html.parser import HTMLParser
+
+
+_WIDTH_RE = re.compile(r"width:\s*([\d.]+)%")
 
 
 def load_env(path: str = ".env") -> dict[str, str]:
@@ -43,10 +47,14 @@ class UsageParser(HTMLParser):
             if "data-usage-track" in a:
                 self.meters[-1]["label"] = a.get("aria-label", "")
             if tag == "button" and "data-usage-segment" in a:
+                style = a.get("style", "") or ""
+                m = _WIDTH_RE.search(style)
+                pct = float(m.group(1)) if m else 0.0
                 self.meters[-1]["segments"].append(
                     {
                         "model": a.get("data-model", ""),
                         "requests": int(a.get("data-requests", "0") or "0"),
+                        "pct": pct,
                     }
                 )
         if "local-time" in (a.get("class", "") or ""):
@@ -83,7 +91,7 @@ def print_summary(meters: list[dict]) -> None:
             print(f"  {meter['reset']}")
         for seg in sorted(meter["segments"], key=lambda s: s["requests"], reverse=True):
             req = seg["requests"]
-            print(f"  {seg['model']}: {req} request{'s' if req != 1 else ''}")
+            print(f"  {seg['model']}: {req} request{'s' if req != 1 else ''} ({seg['pct']:.1f}%)")
         print()
 
 
