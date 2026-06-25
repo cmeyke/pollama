@@ -42,7 +42,7 @@ class UsageParser(HTMLParser):
         a = dict(attrs)
         if "data-usage-meter" in a:
             self._meter_depth = self._depth
-            self.meters.append({"label": None, "reset": None, "segments": []})
+            self.meters.append({"label": None, "reset": None, "reset_at": None, "segments": []})
         if self._meter_depth is not None:
             if "data-usage-track" in a:
                 self.meters[-1]["label"] = a.get("aria-label", "")
@@ -59,6 +59,8 @@ class UsageParser(HTMLParser):
                 )
         if "local-time" in (a.get("class", "") or ""):
             self._capture_reset = True
+            if a.get("data-time") and self.meters:
+                self.meters[-1]["reset_at"] = a["data-time"]
 
     def handle_endtag(self, tag: str) -> None:
         if self._capture_reset and tag == "div":
@@ -89,6 +91,8 @@ def print_summary(meters: list[dict]) -> None:
         print(label)
         if meter["reset"]:
             print(f"  {meter['reset']}")
+        if meter["reset_at"]:
+            print(f"  Resets at {meter['reset_at']}")
         for seg in sorted(meter["segments"], key=lambda s: s["requests"], reverse=True):
             req = seg["requests"]
             print(f"  {seg['model']}: {req} request{'s' if req != 1 else ''} ({seg['pct']:.1f}%)")
