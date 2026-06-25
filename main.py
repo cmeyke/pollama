@@ -1,6 +1,7 @@
 import os
 import re
 import urllib.request
+from datetime import datetime, timezone
 from html.parser import HTMLParser
 
 
@@ -92,7 +93,9 @@ def print_summary(meters: list[dict]) -> None:
         if meter["reset"]:
             print(f"  {meter['reset']}")
         if meter["reset_at"]:
-            print(f"  Resets at {meter['reset_at']}")
+            dt = datetime.fromisoformat(meter["reset_at"].replace("Z", "+00:00"))
+            pretty = dt.astimezone(timezone.utc).strftime("%a %b %d %Y %H:%M UTC")
+            print(f"  Resets at {pretty}")
         for seg in sorted(meter["segments"], key=lambda s: s["requests"], reverse=True):
             req = seg["requests"]
             print(f"  {seg['model']}: {req} request{'s' if req != 1 else ''} ({seg['pct']:.1f}%)")
