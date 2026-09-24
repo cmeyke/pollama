@@ -16,7 +16,20 @@ Create a `.env` file in the project root with your `__Secure-session` cookie val
 SECURE_SESSION=<your cookie value here>
 ```
 
+To get it: sign in at <https://ollama.com/signin>, then in your browser open
+DevTools → Storage → Cookies → `https://ollama.com` and copy the value of the
+`__Secure-session` cookie.
+
 > The cookie is sent as `cookie: __Secure-session=<value>` to `https://ollama.com/settings`. `.env` is gitignored.
+>
+> Note: ollama.com sign-in moved to WorkOS AuthKit. The cookie is still named
+> `__Secure-session`, but values minted before the migration were invalidated,
+> and the value changes again whenever the session is re-issued. If the script
+> reports a rejected session, sign in again and re-copy the cookie.
+>
+> When copying, include the full value, including any trailing `==` — that is
+> base64 padding and part of the cookie. Extracting it in the browser console
+> with `split('=')` strips the padding, and the server rejects the result.
 
 ## Usage
 

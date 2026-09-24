@@ -1,11 +1,25 @@
 import os
 import re
+import sys
 import urllib.request
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 
 
 _WIDTH_RE = re.compile(r"width:\s*([\d.]+)%")
+
+_SETTINGS_URL = "https://ollama.com/settings"
+
+# Endpoints of the sign-in flow ollama.com redirects unauthenticated requests to.
+# ollama.com sign-in moved to WorkOS AuthKit; the migration invalidated
+# pre-migration "__Secure-session" values.
+_SIGNIN_URL_RE = re.compile(
+    r"^https://(signin\.ollama\.com|api\.workos\.com/user_management/authorize|ollama\.com/signin)"
+)
+
+
+class SessionError(Exception):
+    """ollama.com rejected the session cookie and redirected to the sign-in flow."""
 
 
 def load_env(path: str = ".env") -> dict[str, str]:
@@ -23,11 +37,14 @@ def load_env(path: str = ".env") -> dict[str, str]:
 
 
 def fetch_cloud_usage(session: str) -> str:
-    url = "https://ollama.com/settings"
-    req = urllib.request.Request(url)
+    req = urllib.request.Request(_SETTINGS_URL)
     req.add_header("cookie", f"__Secure-session={session}")
     with urllib.request.urlopen(req) as resp:
-        return resp.read().decode("utf-8")
+        final_url = resp.geturl()
+        html = resp.read().decode("utf-8")
+    if _SIGNIN_URL_RE.match(final_url):
+        raise SessionError(f"redirected to {final_url}")
+    return html
 
 
 class UsageParser(HTMLParser):
@@ -102,15 +119,32 @@ def print_summary(meters: list[dict]) -> None:
         print()
 
 
-def main():
+def main() -> int:
     env = load_env()
-    session = env.get("SECURE_SESSION", os.environ.get("SECURE_SESSION", ""))
+    session = env.get("SECURE_SESSION", os.environ.get("SECURE_SESSION", "")).strip()
     if not session:
         print("No SECURE_SESSION found in .env")
-        return
-    html = fetch_cloud_usage(session)
-    print_summary(parse_usage(html))
+        print("Sign in at https://ollama.com/signin, then copy the value of the")
+        print("__Secure-session cookie into .env as SECURE_SESSION=<value>")
+        print("(DevTools -> Storage -> Cookies -> https://ollama.com).")
+        return 1
+    try:
+        html = fetch_cloud_usage(session)
+    except SessionError as exc:
+        print(f"Session rejected ({exc}).")
+        print("ollama.com sign-in moved to WorkOS AuthKit; the cookie value in .env")
+        print("is stale or expired. Sign in at https://ollama.com/signin in your")
+        print("browser (this can be a seamless redirect), then re-copy the value of")
+        print("the __Secure-session cookie into .env as SECURE_SESSION=<value>")
+        print("(DevTools -> Storage -> Cookies -> https://ollama.com).")
+        return 1
+    meters = parse_usage(html)
+    if not meters:
+        print("Settings page fetched but no usage meters found; page markup may have changed.")
+        return 1
+    print_summary(meters)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
