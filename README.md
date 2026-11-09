@@ -55,6 +55,18 @@ Weekly usage 54.4% used
   ...
 ```
 
+## Troubleshooting
+
+The script exits `1` and explains the problem on stderr; stdout carries only the
+usage summary, so `main.py > usage.txt` stays clean.
+
+- **`Session rejected (redirected to ...)`** — the cookie is stale or expired.
+  Re-copy it as described above.
+- **`Settings page fetched but no usage meters found`** — you are signed in, but
+  `/settings` no longer matches what `UsageParser` expects. Update the parser.
+- **`HTTP <code> while fetching ...`** / **`Could not reach ollama.com`** — a
+  transient server or network problem. Retry.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
